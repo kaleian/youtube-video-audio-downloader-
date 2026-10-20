@@ -1,0 +1,35 @@
+# Downloaded files & media (do not commit downloads)
+downloads/
+downloads/*
+*.mp4
+*.mp3
+*.m4a
+*.opus
+*.wav
+*.flac
+*.part
+*.ytdl
+*.zip
+
+# Sensitive cookies & secrets
+cookies.txt
+*.cookie
+.env
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv/
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

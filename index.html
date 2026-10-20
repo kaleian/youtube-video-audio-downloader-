@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YouTube Downloader</title>
+<style>
+  :root { --bg:#0f1115; --card:#181b22; --line:#2a2f3a; --text:#e8eaf0; --muted:#8b93a5; --accent:#ff4d4d; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; display:flex; justify-content:center; align-items:flex-start;
+         background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,sans-serif; padding:40px 16px; }
+  .card { width:100%; max-width:580px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:28px; }
+  h1 { margin:0 0 4px; font-size:22px; }
+  p.sub { margin:0 0 22px; color:var(--muted); font-size:14px; }
+  label { display:block; font-size:13px; color:var(--muted); margin:16px 0 6px; }
+  input[type=text], select { width:100%; padding:11px 12px; border-radius:8px; border:1px solid var(--line);
+         background:#10131a; color:var(--text); font-size:15px; }
+  input:focus, select:focus { outline:2px solid var(--accent); outline-offset:-1px; }
+  .row { display:flex; gap:12px; }
+  .row > div { flex:1; }
+  .toggle { display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .toggle button { flex:1; padding:10px; background:#10131a; color:var(--muted); border:0; cursor:pointer; font-size:14px; }
+  .toggle button.active { background:var(--accent); color:#fff; }
+  .check { display:flex; align-items:center; gap:8px; margin-top:16px; font-size:14px; }
+  .go { width:100%; margin-top:22px; padding:13px; border:0; border-radius:8px; background:var(--accent);
+        color:#fff; font-size:16px; font-weight:600; cursor:pointer; }
+  .go:disabled { opacity:.5; cursor:not-allowed; }
+  .status { margin-top:22px; display:none; }
+  .bar { height:8px; background:#10131a; border-radius:99px; overflow:hidden; border:1px solid var(--line); }
+  .bar > div { height:100%; width:0; background:var(--accent); transition:width .3s; }
+  .meta { display:flex; justify-content:space-between; font-size:13px; color:var(--muted); margin-top:8px; }
+  .title { font-size:14px; margin-bottom:8px; word-break:break-word; }
+  .error { color:#ff8080; font-size:14px; margin-top:12px; word-break:break-word; white-space:pre-wrap; }
+  .files { margin-top:12px; }
+  .files a { display:flex; align-items:center; gap:8px; margin-top:8px; color:#7db7ff;
+             font-size:13px; word-break:break-word; text-decoration:none; padding:7px 10px;
+             background:#10131a; border:1px solid var(--line); border-radius:7px;
+             transition:background .15s; }
+  .files a:hover { background:#1a1f2e; }
+  .dl-all { display:none; width:100%; margin-top:14px; padding:11px; border:0; border-radius:8px;
+            background:linear-gradient(135deg,#1a6b3a,#1e8f4e); color:#fff;
+            font-size:15px; font-weight:600; cursor:pointer; letter-spacing:.3px;
+            transition:opacity .15s; }
+  .dl-all:hover { opacity:.88; }
+  .hidden { display:none; }
+
+  /* cookies banners */
+  .banner { border-radius:10px; padding:14px 18px; margin-bottom:20px; font-size:13px; line-height:1.7; }
+  .banner.warn { background:#1c1507; border:1px solid #6b4f10; color:#f0c060; }
+  .banner.ok   { background:#0c1d0e; border:1px solid #1e5c28; color:#6dcc7f; }
+  .banner b { display:block; font-size:14px; margin-bottom:4px; }
+  .banner ol { margin:6px 0 0 16px; padding:0; }
+  .banner a { color:inherit; font-weight:600; }
+  .banner code { background:#ffffff15; border-radius:4px; padding:1px 6px; font-family:monospace; font-size:12px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>YouTube Downloader</h1>
+  <p class="sub">Download videos or audio. Only save content you have the right to download.</p>
+
+  <!-- cookies.txt warning (shown when file is missing) -->
+  <div id="cookieBanner" class="banner warn hidden">
+    <b>⚠️ cookies.txt not found — downloads may fail with 403 errors</b>
+    Fix it once by exporting your Brave cookies:
+    <ol>
+      <li>Install <a href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc" target="_blank">Get cookies.txt LOCALLY</a> extension in Brave</li>
+      <li>Open <a href="https://www.youtube.com" target="_blank">youtube.com</a> in Brave (log in first for best results)</li>
+      <li>Click the extension icon &rarr; <em>Export</em></li>
+      <li>Save the file as <code>cookies.txt</code> inside the project folder</li>
+    </ol>
+    This banner disappears automatically once the file is detected.
+  </div>
+
+  <!-- cookies.txt OK banner -->
+  <div id="cookieOk" class="banner ok hidden">
+    ✅ <b>cookies.txt detected — downloads are fully unlocked.</b>
+  </div>
+
+  <label for="url">Video or playlist URL</label>
+  <input type="text" id="url" placeholder="https://www.youtube.com/watch?v=..." autofocus>
+
+  <label>Type</label>
+  <div class="toggle">
+    <button type="button" id="btnVideo" class="active">Video</button>
+    <button type="button" id="btnAudio">Audio</button>
+  </div>
+
+  <div class="row" id="videoOpts">
+    <div>
+      <label for="quality">Max quality</label>
+      <select id="quality">
+        <option value="best">Best available</option>
+        <option value="1080">1080p</option>
+        <option value="720">720p</option>
+        <option value="480">480p</option>
+        <option value="360">360p</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="row hidden" id="audioOpts">
+    <div>
+      <label for="format">Audio format</label>
+      <select id="format">
+        <option value="mp3">MP3</option>
+        <option value="m4a">M4A</option>
+        <option value="opus">Opus</option>
+        <option value="wav">WAV</option>
+        <option value="flac">FLAC</option>
+      </select>
+    </div>
+  </div>
+
+  <label class="check"><input type="checkbox" id="playlist"> Download the whole playlist</label>
+
+  <button class="go" id="go">Download</button>
+
+  <div class="status" id="status">
+    <div class="title" id="title"></div>
+    <div class="bar"><div id="fill"></div></div>
+    <div class="meta"><span id="stateText"></span><span id="speedText"></span></div>
+    <div class="error" id="error"></div>
+    <div class="files" id="files"></div>
+    <button class="dl-all" id="dlAll">⬇ Download All as ZIP</button>
+  </div>
+</div>
+
+<script>
+  let mode = "video";
+  const $ = id => document.getElementById(id);
+
+  // Poll cookies.txt status every 5s so banner auto-clears when user drops the file in
+  async function checkCookies() {
+    try {
+      const { has_cookies } = await (await fetch("/api/cookies-status")).json();
+      $("cookieBanner").classList.toggle("hidden", has_cookies);
+      $("cookieOk").classList.toggle("hidden", !has_cookies);
+    } catch (_) {}
+  }
+  checkCookies();
+  setInterval(checkCookies, 5000);
+
+  function setMode(m) {
+    mode = m;
+    $("btnVideo").classList.toggle("active", m === "video");
+    $("btnAudio").classList.toggle("active", m === "audio");
+    $("videoOpts").classList.toggle("hidden", m !== "video");
+    $("audioOpts").classList.toggle("hidden", m !== "audio");
+  }
+  $("btnVideo").onclick = () => setMode("video");
+  $("btnAudio").onclick = () => setMode("audio");
+
+  $("go").onclick = async () => {
+    const url = $("url").value.trim();
+    if (!url) return;
+
+    $("go").disabled = true;
+    $("status").style.display = "block";
+    $("error").textContent = "";
+    $("files").innerHTML = "";
+    $("title").textContent = "";
+    $("fill").style.width = "0%";
+    $("stateText").textContent = "Starting...";
+    $("speedText").textContent = "";
+    $("dlAll").style.display = "none";
+
+    const res = await fetch("/api/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url, mode,
+        quality: $("quality").value,
+        format: $("format").value,
+        playlist: $("playlist").checked,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      $("error").textContent = data.error || "Something went wrong.";
+      $("go").disabled = false;
+      return;
+    }
+    poll(data.id);
+  };
+
+  function poll(id) {
+    const timer = setInterval(async () => {
+      const job = await (await fetch("/api/status/" + id)).json();
+
+      $("title").textContent = job.title || "";
+      const pct = parseFloat(job.percent) || 0;
+      $("fill").style.width = pct + "%";
+
+      const labels = { starting: "Starting...", downloading: "Downloading " + job.percent,
+                       processing: "Processing...", done: "Done", error: "Failed" };
+      $("stateText").textContent = labels[job.status] || job.status;
+      $("speedText").textContent = job.status === "downloading" ? `${job.speed}  ETA ${job.eta}` : "";
+
+      $("files").innerHTML = "";
+      job.files.forEach(name => {
+        const a = document.createElement("a");
+        a.href = "/files/" + encodeURIComponent(name);
+        a.download = name;
+        a.innerHTML = `<span>&#8681;</span><span>${name}</span>`;
+        $("files").appendChild(a);
+      });
+
+      if (job.status === "done" || job.status === "error") {
+        clearInterval(timer);
+        $("go").disabled = false;
+        if (job.status === "error") $("error").textContent = job.error;
+        if (job.status === "done") {
+          $("fill").style.width = "100%";
+          if (job.files.length > 1) {
+            const btn = $("dlAll");
+            btn.style.display = "block";
+            btn.onclick = () => { window.location.href = "/api/zip/" + id; };
+          }
+        }
+      }
+    }, 800);
+  }
+</script>
+</body>
+</html>
